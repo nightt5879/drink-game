@@ -6,6 +6,6 @@
 
 纯静态 HTML / Canvas / JavaScript，无需安装依赖。运行任意静态服务器即可预览，例如 `python -m http.server 8080`。GitHub Pages 使用 `main` 分支根目录。
 
-原图为项目发起人提供的拼图，角色名称也由发起人指定。游戏在运行时从同一张原图取景，使用同色背景补齐球体，不重新生成脸或饮料文字。最小球的半径从原版的 22 调整到 58，保留 12 级合成。
+原图为项目发起人提供的拼图，角色名称也由发起人指定。游戏在运行时从同一张原图取景，使用同色背景补齐球体，不重新生成脸或饮料文字。游戏中的 12 档球体半径与大学版一致：22、27、33、41、51、64、80、100、125、156、190、220。
 
 游戏基础逻辑来自 [plianasp-maker/scut-game](https://github.com/plianasp-maker/scut-game)，排序交互复用 [nightt5879/sysu-game](https://github.com/nightt5879/sysu-game)。

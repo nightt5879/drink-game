@@ -62,7 +62,7 @@ const names = ['嘎子','牢大','雪风','螺哥','峰哥','忍者神龟','咩�
 const orderKey = 'merge-drinks:order:v1';
 const ids = Array.from(game.state.savedOrder);
 assert.deepEqual(Array.from(game.LEVELS, x => x.name), names);
-assert.equal(game.LEVELS[0].radius, 58);
+assert.deepEqual(Array.from(game.LEVELS, x => x.radius), [22,27,33,41,51,64,80,100,125,156,190,220]);
 assert.equal(game.LEVELS[11].radius, 220);
 assert.equal(document.title, '合成饮料');
 assert.equal(/sysu|scut|大学|校徽|orderRejected/.test(html), false);
