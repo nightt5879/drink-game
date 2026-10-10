@@ -1,0 +1,1156 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#164967">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="description" content="12 个饮料梗球，碰撞合成，自由调整顺序">
+<title>合成饮料</title>
+<style>
+  :root {
+    color-scheme: light;
+    font-family: system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    color: #233f50;
+    background: #edf6fa;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { margin: 0; min-height: 100%; }
+  html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+  body { overscroll-behavior: none; background-image: linear-gradient(to bottom, #f8fcfe 0%, #d8edf5 100%); }
+  button, canvas { -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+  button { font: inherit; line-height: 1; color: inherit; margin: 0; padding: 0; border: 0; background: none; appearance: none; -webkit-appearance: none; }
+  button:focus, canvas:focus { outline: none; }
+
+  .app { margin: 0 auto; padding: env(safe-area-inset-top) 0 0; max-width: 440px; }
+
+  .topbar {
+    height: 54px; display: grid; grid-template-columns: minmax(0,1fr) auto auto auto;
+    align-items: center; gap: 6px; padding: 0 10px;
+  }
+  .brand { min-width: 0; }
+  .brand h1 { margin: 0; font-size: 21px; line-height: 1.1; letter-spacing: -0.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #164967; }
+  .brand p { margin: 3px 0 0; color: #728b99; font-size: 12px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  .metric { min-width: 46px; height: 42px; padding: 3px 5px; border-radius: 12px; background: #ffffff; box-shadow: 0 1px 3px rgba(34,48,31,.08); display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .metric span { color: #7a97a5; font-size: 11px; font-weight: 700; letter-spacing: .05em; line-height: 1; }
+  .metric strong { font-size: 16px; font-variant-numeric: tabular-nums; line-height: 1.2; }
+  .metric-score strong { color: #b8860b; }
+
+  .icon-button { width: 42px; height: 42px; border-radius: 12px; background: #ffffff; box-shadow: 0 1px 3px rgba(34,48,31,.08); display: grid; place-items: center; cursor: pointer; }
+  .icon-button:active { transform: translateY(1px) scale(.98); }
+  .restart-button { min-width: 46px; height: 42px; border-radius: 12px; background: #ffffff; box-shadow: 0 1px 3px rgba(34,48,31,.08); font-size: 12px; font-weight: 800; color: #164967; cursor: pointer; padding: 0 8px; }
+  .restart-button:active { transform: translateY(1px) scale(.98); }
+
+  .board {
+    position: relative; width: 100%; aspect-ratio: 2 / 3; overflow: hidden; isolation: isolate;
+    background: linear-gradient(180deg, #e1f4fc 0%, #f5fbfe 52%, #cce6f1 100%);
+    box-shadow: 0 0 0 1px rgba(34,48,31,.06) inset;
+  }
+  #gameCanvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: crosshair; }
+
+  .overlay { position: absolute; inset: 0; z-index: 5; padding: 22px; background: rgba(246,251,240,.94); display: grid; place-items: center; }
+  .overlay-card { width: 100%; max-width: 320px; padding: 24px 22px; border: 1px solid #d1e5ef; border-radius: 22px; background: #ffffff; box-shadow: 0 12px 30px rgba(34,48,31,.14); text-align: center; }
+  .overlay h2 { margin: 0; font-size: 26px; line-height: 1.25; letter-spacing: -0.03em; color: #233f50; }
+  .confirm-copy { margin: 10px 0 18px; color: #728b99; font-size: 15px; line-height: 1.45; }
+  .result-row { margin-bottom: 14px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .result-row > div { padding: 11px 8px; border-radius: 13px; background: #edf6fa; }
+  .result-row > div > span { display: block; margin-bottom: 4px; color: #7a97a5; font-size: 11px; font-weight: 700; }
+  .result-row > div > strong { display: block; color: #164967; font-size: 19px; }
+  .highest-item { width: 64px; height: 64px; margin: 2px auto 0; border-radius: 50%; display: grid; place-items: center; font-weight: 800; color: #fff; font-size: 15px; text-shadow: 0 1px 2px rgba(0,0,0,.2); }
+  .new-record { margin: -4px 0 13px; color: #c0392b; font-weight: 800; }
+  .confirm-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+  .game-over-actions { grid-template-columns: 1fr; }
+  .btn { height: 44px; border-radius: 13px; font-size: 14px; font-weight: 800; cursor: pointer; }
+  .btn:active { transform: translateY(1px) scale(.98); }
+  .btn-secondary { background: #edf5f9; color: #4a687b; }
+  .btn-primary { background: #197baa; color: #fff; }
+
+  .footer { padding: 8px 10px; color: #829ca9; font-size: 11px; text-align: center; line-height: 1.5; }
+
+  .sound-icon { position: relative; width: 20px; height: 18px; display: block; color: #4a687b; }
+  .sound-icon::before { position: absolute; top: 1px; left: 1px; width: 13px; height: 16px; background: currentColor; clip-path: polygon(0 36%,30% 36%,72% 5%,72% 95%,30% 64%,0 64%); content: ""; }
+  .sound-icon::after { position: absolute; top: 4px; right: 0; width: 6px; height: 10px; border-right: 2px solid currentColor; border-radius: 0 50% 50% 0; content: ""; }
+  .sound-icon.is-muted::after { top: 8px; right: 0; width: 19px; height: 2px; border: 0; border-radius: 999px; background: currentColor; transform: rotate(-45deg); }
+
+  .settings-button { width: 34px; }
+  .settings-button svg { width: 20px; height: 20px; fill: none; stroke: #4a687b; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .modal { position: fixed; inset: 0; z-index: 20; padding: 16px; background: rgba(24,43,25,.48); display: grid; place-items: center; }
+  .settings-card { width: 100%; max-width: 400px; max-height: calc(100vh - 32px); max-height: calc(100dvh - 32px); display: flex; flex-direction: column; padding: 20px; border-radius: 22px; background: #fff; box-shadow: 0 16px 48px rgba(16,40,20,.24); }
+  .settings-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .settings-heading h2 { margin: 0; font-size: 22px; color: #164967; }
+  .close-button { width: 32px; height: 32px; border-radius: 10px; background: #edf5f9; font-size: 24px; cursor: pointer; flex-shrink: 0; }
+  .settings-copy { margin: 8px 0 12px; color: #728b99; font-size: 13px; line-height: 1.5; }
+  .order-list { list-style: none; margin: 0; padding: 0; overflow-y: auto; overscroll-behavior: contain; min-height: 0; border: 1px solid #e0edf3; border-radius: 14px; }
+  .order-row { display: flex; align-items: center; gap: 8px; min-height: 46px; padding: 5px 8px; border-bottom: 1px solid #edf5f9; background: #fff; }
+  .order-row:last-child { border-bottom: 0; }
+  .order-row.is-dragging { background: #e2f3fc; box-shadow: inset 3px 0 #197baa; }
+  .order-rank { width: 20px; color: #829ca9; font-size: 12px; font-variant-numeric: tabular-nums; text-align: center; }
+  .order-row img { width: 30px; height: 30px; object-fit: contain; border-radius: 50%; background: #fff; pointer-events: none; }
+  .order-name { flex: 1; font-size: 14px; font-weight: 700; }
+  .order-handle { width: 24px; height: 34px; color: #7a97a5; font-size: 22px; cursor: grab; touch-action: none; }
+  .order-row.is-dragging .order-handle { cursor: grabbing; }
+  .order-move { width: 30px; height: 32px; border-radius: 8px; background: #edf6fa; font-size: 16px; cursor: pointer; }
+  .order-move:disabled { opacity: .3; cursor: default; }
+  .settings-note { margin: 12px 0; font-size: 12px; color: #728b99; line-height: 1.5; }
+  .settings-actions { flex-shrink: 0; }
+  .order-announcement { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .modal button:focus-visible, .modal a:focus-visible, .settings-button:focus-visible { outline: 2px solid #197baa; outline-offset: 2px; }
+  @media (max-width: 380px) {
+    .topbar { gap: 4px; padding: 0 6px; }
+    .brand h1 { font-size: 18px; }
+    .brand p { font-size: 10px; }
+    .metric { min-width: 40px; }
+    .icon-button { width: 34px; }
+    .restart-button { min-width: 40px; padding: 0 6px; }
+    .settings-card { padding: 16px; }
+  }
+  @media (max-width: 340px) {
+    .metric { min-width: 36px; }
+    .icon-button { width: 30px; }
+    .restart-button { min-width: 36px; }
+  }
+  .order-row { min-height: 66px; }
+  .order-portrait { width: 52px; height: 52px; flex-shrink: 0; pointer-events: none; }
+  .gallery-launch { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 12px 3px; }
+  .gallery-launch button { color: #197baa; font-size: 13px; font-weight: 750; cursor: pointer; min-height: 32px; }
+  .gallery-launch span { color: #829ca9; font-size: 11px; }
+  .gallery-card { width: 100%; max-width: 600px; max-height: calc(100dvh - 32px); overflow: auto; padding: 20px; border-radius: 22px; background: #fff; }
+  .gallery-list { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 18px 10px; }
+  .gallery-list figure { margin: 0; min-width: 0; text-align: center; }
+  .gallery-list canvas { width: 100%; height: auto; display: block; }
+  .gallery-list figcaption { margin-top: 5px; font-size: 14px; font-weight: 700; }
+  .gallery-list figcaption span { margin-right: 5px; font-size: 11px; color: #829ca9; }
+  @media (max-width: 420px) { .gallery-list { grid-template-columns: repeat(2,minmax(0,1fr)); } .gallery-card { padding: 16px; } }
+</style>
+</head>
+<body>
+<main class="app">
+  <header class="topbar">
+    <div class="brand">
+      <h1 id="gameTitle">合成饮料</h1>
+      <p>左右拖动 · 松手落下</p>
+    </div>
+    <div class="metric metric-score"><span>得分</span><strong id="score">0</strong></div>
+    <div class="metric"><span>最高</span><strong id="bestScore">0</strong></div>
+    <div style="display:flex;gap:5px;align-items:center;">
+      <button class="icon-button settings-button" id="settingsButton" type="button" aria-label="设置合成顺序" aria-haspopup="dialog"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z"/><path d="m9 3-.6 2.4-2 .9L4 5.7 2.5 8.3l1.7 1.8-.2 2.2-1.5 2 1.5 2.6 2.4-.6 2 .9L9 20h3l.6-2.4 2-.9 2.4.6 1.5-2.6-1.5-2 .2-2.2 1.7-1.8L17.4 6l-2.4.6-2-.9L12.4 3Z" transform="translate(1 0)"/></svg></button>
+      <button class="icon-button" id="soundButton" type="button" aria-label="关闭声音" aria-pressed="true"><span class="sound-icon" id="soundIcon"></span></button>
+      <button class="restart-button" id="restartButton" type="button">重开</button>
+    </div>
+  </header>
+
+  <div class="board">
+    <canvas id="gameCanvas"></canvas>
+
+    <div class="overlay" id="gameOverOverlay" role="dialog" aria-modal="true" hidden>
+      <div class="overlay-card">
+        <h2>本局结束</h2>
+        <p class="confirm-copy" id="gameOverMessage">差一点就更大了</p>
+        <div class="result-row">
+          <div><span>最高合成</span><div class="highest-item" id="highestItem">—</div></div>
+          <div><span>得分</span><strong id="finalScore">0</strong></div>
+        </div>
+        <p class="new-record" id="newRecord" hidden>新纪录！</p>
+        <div class="confirm-actions game-over-actions">
+          <button class="btn btn-primary" id="againButton" type="button">再合一次</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="overlay" id="restartConfirmOverlay" role="dialog" aria-modal="true" hidden>
+      <div class="overlay-card">
+        <h2>重新开始？</h2>
+        <p class="confirm-copy">当前进度将会丢失</p>
+        <div class="confirm-actions">
+          <button class="btn btn-secondary" id="restartCancelButton" type="button">取消</button>
+          <button class="btn btn-primary" id="restartConfirmButton" type="button">重新开始</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="gallery-launch"><button id="galleryButton" type="button" aria-haspopup="dialog">查看 12 个饮料球 ↗</button><span>同款相碰 · 越合越大</span></div>
+  <footer class="footer" id="gameFooter">合成饮料 · 两个相同的饮料球碰撞，合成下一级</footer>
+</main>
+
+<div class="modal" id="settingsOverlay" role="dialog" aria-modal="true" aria-labelledby="settingsTitle" aria-describedby="settingsDescription" hidden>
+  <div class="settings-card">
+    <div class="settings-heading"><h2 id="settingsTitle">合成顺序</h2><button class="close-button" id="settingsCloseButton" type="button" aria-label="取消并关闭设置">×</button></div>
+    <p class="settings-copy" id="settingsDescription">从小到大排列，拖动手柄或点击箭头调整。</p>
+    <ol class="order-list" id="orderList" aria-label="饮料球顺序，从最小到最大"></ol>
+    <p class="order-announcement" id="orderAnnouncement" aria-live="polite"></p>
+    <p class="settings-note">顺序保存在当前浏览器。保存新顺序后，会重新开始本局。</p>
+    <div class="confirm-actions settings-actions"><button class="btn btn-secondary" id="settingsResetButton" type="button">恢复默认</button><button class="btn btn-primary" id="settingsSaveButton" type="button">保存顺序</button></div>
+  </div>
+</div>
+
+<div class="modal" id="galleryOverlay" role="dialog" aria-modal="true" aria-labelledby="galleryTitle" hidden>
+  <div class="gallery-card">
+    <div class="settings-heading"><h2 id="galleryTitle">12 个饮料球</h2><button class="close-button" id="galleryCloseButton" type="button" aria-label="关闭球体预览">×</button></div>
+    <p class="settings-copy">从小到大 · 顺序可以在设置里调整</p>
+    <div class="gallery-list" id="galleryList"></div>
+  </div>
+</div>
+<script>
+(function () {
+  "use strict";
+
+  /* ===== 原图中的 12 个饮料角色；整张人物图保留，大小与排序独立 ===== */
+  var CHARACTERS = [
+    {
+        "id": "gazi",
+        "name": "嘎子",
+        "full": "嘎子",
+        "color": "#dfe7eb",
+        "asset": "assets/drink-people.jpg",
+        "source": [
+            3,
+            3,
+            267,
+            354
+        ]
+    },
+    {
+        "id": "laoda",
+        "name": "牢大",
+        "full": "牢大",
+        "color": "#6facc4",
+        "asset": "assets/drink-people.jpg",
+        "source": [
+            1078,
+            3,
+            263,
+            354
+        ]
+    },
+    {
+        "id": "xuefeng",
+        "name": "雪风",
+        "full": "雪风",
+        "color": "#5299c7",
+        "asset": "assets/drink-people.jpg",
+        "source": [
+            1347,
+            3,
+            258,
+            354
+        ]
+    },
+    {
+        "id": "luoge",
+        "name": "螺哥",
+        "full": "螺哥",
+        "color": "#69acc5",
+        "asset": "assets/drink-people.jpg",
+        "source": [
+            3,
+            363,
+            267,
+            352
+        ]
+    },
+    {
+        "id": "fengge",
+        "name": "峰哥",
+        "full": "峰哥",
+        "color": "#4879ca",
+        "asset": "assets/drink-people.jpg",
+        "source": [
+            276,
+            363,
+            259,
+            352
+        ]
+    },
+    {
+        "id": "ninja",
+        "name": "忍者神龟",
+        "full": "忍者神龟",
+        "color": "#a4aba8",
+        "asset": "assets/drink-people.jpg",
+        "source": [
+            541,
+            363,
+            264,
+            352
+        ]
+    },
+    {
+        "id": "miexi",
+        "name": "咩西",
+        "full": "咩西",
+        "color": "#acb5b5",
+        "asset": "assets/drink-people.jpg",
+        "source": [
+            811,
+            363,
+            261,
+            352
+        ]
+    },
+    {
+        "id": "xulaoban",
+        "name": "许老板",
+        "full": "许老板",
+        "color": "#4d8bc2",
+        "asset": "assets/drink-people.jpg",
+        "source": [
+            1078,
+            363,
+            263,
+            352
+        ]
+    },
+    {
+        "id": "tuniang",
+        "name": "兔娘",
+        "full": "兔娘",
+        "color": "#79c0cf",
+        "asset": "assets/drink-people.jpg",
+        "source": [
+            1347,
+            363,
+            258,
+            352
+        ]
+    },
+    {
+        "id": "buu",
+        "name": "魔人布欧",
+        "full": "魔人布欧",
+        "color": "#f2f3f0",
+        "asset": "assets/drink-people.jpg",
+        "source": [
+            3,
+            721,
+            267,
+            355
+        ]
+    },
+    {
+        "id": "datou",
+        "name": "大头",
+        "full": "大头",
+        "color": "#5488ac",
+        "asset": "assets/drink-people.jpg",
+        "source": [
+            541,
+            721,
+            264,
+            355
+        ]
+    },
+    {
+        "id": "qisheng",
+        "name": "棋圣",
+        "full": "棋圣",
+        "color": "#96a3a1",
+        "asset": "assets/drink-people.jpg",
+        "source": [
+            1078,
+            721,
+            263,
+            355
+        ]
+    }
+];
+  var LEVEL_RADII = [58, 65, 73, 82, 93, 105, 119, 135, 153, 173, 196, 220];
+  var DEFAULT_ORDER = CHARACTERS.map(function (character) { return character.id; });
+  var ORDER_STORAGE_KEY = "merge-drinks:order:v1";
+  var portraitSheet = new Image();
+  portraitSheet.src = "assets/drink-people.jpg";
+  var characterImages = {};
+  CHARACTERS.forEach(function (character) { characterImages[character.id] = portraitSheet; });
+  portraitSheet.addEventListener("load", function () { renderOrderList(); renderGallery(); render(); });
+  var savedOrder = loadOrder();
+  var draftOrder = savedOrder.slice();
+  var LEVELS = [];
+  var IMAGES = [];
+  applyOrder(savedOrder);
+
+  /* ===== 物理 / 世界常量 ===== */
+  var WORLD_W = 640;
+  var WORLD_H = 960;
+  var FLOOR = WORLD_H;
+  var LEFT_WALL = 0;
+  var RIGHT_WALL = WORLD_W;
+  var DANGER_LINE = 128;
+  var GRAVITY = 2100;
+  var WALL_RESTITUTION = 0.18;
+  var CIRCLE_RESTITUTION = 0.08;
+  var FRICTION = 0.20;
+  var GROUND_FRICTION = 2.0;   // 地面摩擦（每秒），减缓落地后的水平滑动
+  var DANGER_DELAY = 0.9;
+  var GRACE = 0.75;
+  var SPAWN_LEVEL_COUNT = 5;          // 随机投放当前顺序的前 5 级
+  var MAX_LEVEL = LEVELS.length - 1;
+  var DROP_COOLDOWN = 0.42;
+
+  var canvas = document.getElementById("gameCanvas");
+  var ctx = canvas.getContext("2d");
+  var scoreEl = document.getElementById("score");
+  var bestEl = document.getElementById("bestScore");
+  var finalScoreEl = document.getElementById("finalScore");
+  var highestItemEl = document.getElementById("highestItem");
+  var gameOverMessageEl = document.getElementById("gameOverMessage");
+  var newRecordEl = document.getElementById("newRecord");
+  var gameOverOverlay = document.getElementById("gameOverOverlay");
+  var restartConfirmOverlay = document.getElementById("restartConfirmOverlay");
+  var againButton = document.getElementById("againButton");
+  var restartButton = document.getElementById("restartButton");
+  var restartCancelButton = document.getElementById("restartCancelButton");
+  var restartConfirmButton = document.getElementById("restartConfirmButton");
+  var soundButton = document.getElementById("soundButton");
+  var soundIcon = document.getElementById("soundIcon");
+  var settingsButton = document.getElementById("settingsButton");
+  var settingsOverlay = document.getElementById("settingsOverlay");
+  var orderList = document.getElementById("orderList");
+  var orderAnnouncement = document.getElementById("orderAnnouncement");
+  var settingsCloseButton = document.getElementById("settingsCloseButton");
+  var settingsResetButton = document.getElementById("settingsResetButton");
+  var settingsSaveButton = document.getElementById("settingsSaveButton");
+  var app = document.querySelector(".app");
+
+  var galleryButton = document.getElementById("galleryButton");
+  var galleryOverlay = document.getElementById("galleryOverlay");
+  var galleryCloseButton = document.getElementById("galleryCloseButton");
+  var galleryList = document.getElementById("galleryList");
+  var modeBeforeGallery = "playing";
+  var STORAGE_KEY = "merge-drinks:best:v1";
+
+  var items = [];
+  var particles = [];
+  var floaters = [];
+  var score = 0;
+  var bestScore = 0;
+  var bestBeforeGame = 0;
+  var currentLevel = 0;
+  var aimX = WORLD_W / 2;
+  var readyToDrop = true;
+  var dropCooldown = 0;
+  var hasDroppedItem = false;
+  var maxLevelReached = 0;
+  var hasMergedHighest = false;
+  var dangerTimer = 0;
+  var mode = "playing";   // playing | ending | gameover | confirming | settings
+  var modeBeforeConfirm = "playing";
+  var modeBeforeSettings = "playing";
+  var orderDrag = null;
+  var nextItemId = 1;
+  var activePointer = null;
+  var tiltX = 0;   // 陀螺仪水平重力分量（左右倾斜映射，-1.2~1.2）
+  var soundEnabled = true;
+  var audioCtx = null;
+  var lastTime = 0;
+  var rafId = null;
+  var dpr = 1;
+  var scaleX = 1;
+  var scaleY = 1;
+
+  /* ===== 工具 ===== */
+  function clamp(v, lo, hi) { return v < lo ? lo : (v > hi ? hi : v); }
+  function randLevel() { return Math.floor(Math.random() * SPAWN_LEVEL_COUNT); }
+  function levelScore(level) { return Math.pow(2, level); }
+
+  function loadBest() {
+    try {
+      var v = parseInt(window.localStorage.getItem(STORAGE_KEY), 10);
+      return Number.isFinite(v) && v >= 0 ? v : 0;
+    } catch (e) { return 0; }
+  }
+  function saveBest() {
+    try { window.localStorage.setItem(STORAGE_KEY, String(bestScore)); } catch (e) {}
+  }
+
+  /* ===== 顺序设置：草稿取消不影响当前游戏，保存后重新开始 ===== */
+  function characterById(id) {
+    return CHARACTERS.find(function (character) { return character.id === id; });
+  }
+  function isCompleteOrder(order) {
+    return Array.isArray(order) && order.length === CHARACTERS.length && order.every(function (id, index) {
+      return !!characterById(id) && order.indexOf(id) === index;
+    });
+  }
+  function loadOrder() {
+    try {
+      var order = JSON.parse(window.localStorage.getItem(ORDER_STORAGE_KEY));
+      if (isCompleteOrder(order)) return order;
+    } catch (e) {}
+    return DEFAULT_ORDER.slice();
+  }
+  function applyOrder(order) {
+    LEVELS = order.map(function (id, index) {
+      return Object.assign({}, characterById(id), { radius: LEVEL_RADII[index], crown: index === order.length - 1 });
+    });
+    IMAGES = order.map(function (id) { return characterImages[id]; });
+  }
+  function updateGameTitle() {
+    var title = "合成饮料";
+    document.getElementById("gameTitle").textContent = title;
+    document.getElementById("gameFooter").textContent = title + " · 两个相同的饮料球碰撞，合成下一级";
+    document.title = title;
+  }
+  function renderOrderList(focusId, focusAction) {
+    orderList.innerHTML = draftOrder.map(function (id, index) {
+      var character = characterById(id);
+      return '<li class="order-row' + (orderDrag && orderDrag.id === id ? ' is-dragging' : '') + '" data-character="' + id + '">' +
+        '<span class="order-rank">' + (index + 1) + '</span><canvas class="order-portrait" width="112" height="112" aria-hidden="true" data-portrait="' + id + '"></canvas>' +
+        '<span class="order-name" title="' + character.full + '">' + character.name + '</span>' +
+        '<button class="order-handle" type="button" data-action="drag" aria-label="拖动' + character.full + '调整顺序">⠿</button>' +
+        '<button class="order-move" type="button" data-action="up" aria-label="' + character.full + '上移"' + (index === 0 ? ' disabled' : '') + '>↑</button>' +
+        '<button class="order-move" type="button" data-action="down" aria-label="' + character.full + '下移"' + (index === draftOrder.length - 1 ? ' disabled' : '') + '>↓</button></li>';
+    }).join("");
+    Array.from(orderList.querySelectorAll("canvas[data-portrait]")).forEach(function (preview) {
+      drawPortrait(preview.getContext("2d"), characterById(preview.dataset.portrait), 56, 56, 54);
+    });
+    if (focusId) {
+      var button = orderList.querySelector('[data-character="' + focusId + '"] [data-action="' + focusAction + '"]');
+      if (button.disabled) button = orderList.querySelector('[data-character="' + focusId + '"] [data-action="drag"]');
+      button.focus({ preventScroll: true });
+    }
+  }
+  function moveCharacter(id, targetIndex) {
+    var from = draftOrder.indexOf(id);
+    targetIndex = clamp(targetIndex, 0, draftOrder.length - 1);
+    if (from < 0 || from === targetIndex) return;
+    draftOrder.splice(from, 1);
+    draftOrder.splice(targetIndex, 0, id);
+    orderAnnouncement.textContent = characterById(id).full + "已移到第" + (targetIndex + 1) + "级";
+    renderOrderList();
+  }
+  function openSettings() {
+    if (mode !== "playing" && mode !== "gameover") return;
+    modeBeforeSettings = mode;
+    mode = "settings";
+    activePointer = null;
+    draftOrder = savedOrder.slice();
+    orderDrag = null;
+    renderOrderList();
+    orderAnnouncement.textContent = "";
+    orderList.scrollTop = 0;
+    settingsOverlay.hidden = false;
+    app.inert = true;
+    settingsCloseButton.focus();
+  }
+  function closeSettings(restart) {
+    settingsOverlay.hidden = true;
+    orderDrag = null;
+    draftOrder = savedOrder.slice();
+    app.inert = false;
+    lastTime = 0;
+    if (restart) startGame();
+    else {
+      mode = modeBeforeSettings;
+      requestFrame();
+    }
+    settingsButton.focus();
+  }
+  function saveSettings() {
+    if (mode !== "settings" || orderDrag || !isCompleteOrder(draftOrder)) return;
+    var changed = draftOrder.some(function (id, index) { return id !== savedOrder[index]; });
+    if (changed) {
+      savedOrder = draftOrder.slice();
+      try { window.localStorage.setItem(ORDER_STORAGE_KEY, JSON.stringify(savedOrder)); } catch (e) {}
+      applyOrder(savedOrder);
+      updateGameTitle();
+    }
+    closeSettings(changed);
+  }
+
+
+  /* ===== 物体 ===== */
+  function makeItem(level, x, y, vx, vy) {
+    var r = LEVELS[level].radius;
+    return {
+      id: nextItemId++, level: level, radius: r, mass: r * r, invMass: 1 / (r * r),
+      x: x, y: y, vx: vx || 0, vy: vy || 0, age: 0, grace: GRACE, pop: level === MAX_LEVEL ? 0.25 : 0
+    };
+  }
+
+  /* ===== 游戏流程 ===== */
+  function startGame() {
+    items = []; particles = []; floaters = [];
+    score = 0; hasDroppedItem = false; maxLevelReached = 0; hasMergedHighest = false;
+    nextItemId = 1; dangerTimer = 0; activePointer = null;
+    bestBeforeGame = bestScore;
+    currentLevel = randLevel();
+    aimX = WORLD_W / 2; readyToDrop = true; dropCooldown = 0;
+    mode = "playing";
+    gameOverOverlay.hidden = true;
+    restartConfirmOverlay.hidden = true;
+    newRecordEl.hidden = true;
+    updateScore();
+    requestFrame();
+  }
+
+  function dropCurrent() {
+    if (mode !== "playing" || !readyToDrop) return;
+    aimX = limitAimX(aimX);
+    items.push(makeItem(currentLevel, aimX, -LEVELS[currentLevel].radius - 6, 0, 160));
+    hasDroppedItem = true;
+    maxLevelReached = Math.max(maxLevelReached, currentLevel);
+    readyToDrop = false;
+    dropCooldown = DROP_COOLDOWN;
+    playDropSound();
+  }
+
+  function limitAimX(v) {
+    var r = LEVELS[currentLevel].radius;
+    return clamp(v, LEFT_WALL + r + 2, RIGHT_WALL - r - 2);
+  }
+
+  function beginFailure() {
+    if (mode !== "playing") return;
+    mode = "ending";
+    playGameOverSound();
+    // 简短爆炸后显示结束面板
+    setTimeout(finishGame, 320);
+  }
+
+  function finishGame() {
+    if (mode !== "ending") return;
+    mode = "gameover";
+    var madeRecord = score > bestBeforeGame && score > 0;
+    finalScoreEl.textContent = String(score);
+    var top = LEVELS[maxLevelReached];
+    highestItemEl.textContent = top.name;
+    highestItemEl.style.background = top.color;
+    highestItemEl.style.boxShadow = top.crown ? "0 0 0 3px #e6b422" : "none";
+    gameOverMessageEl.textContent = hasMergedHighest ? "已合成" + LEVELS[MAX_LEVEL].full + "！" : "差一点就更大了";
+    newRecordEl.hidden = !madeRecord;
+    gameOverOverlay.hidden = false;
+  }
+
+  function openConfirm() {
+    if (mode !== "playing") return;
+    modeBeforeConfirm = mode;
+    mode = "confirming";
+    restartConfirmOverlay.hidden = false;
+  }
+  function closeConfirm(confirmed) {
+    restartConfirmOverlay.hidden = true;
+    if (confirmed) { startGame(); return; }
+    mode = modeBeforeConfirm;
+    requestFrame();
+  }
+
+  /* ===== 分数 ===== */
+  function addMergeScore(level, x, y) {
+    var pts = levelScore(level);
+    score += pts;
+    if (score > bestScore) { bestScore = score; saveBest(); }
+    floaters.push({ x: x, y: y, text: "+" + pts, life: 0.7, maxLife: 0.7 });
+    updateScore();
+  }
+  function updateScore() {
+    scoreEl.textContent = String(score);
+    bestEl.textContent = String(bestScore);
+  }
+
+  /* ===== 粒子 ===== */
+  function addBurst(x, y, color) {
+    var n = 8 + Math.floor(Math.random() * 6);
+    for (var i = 0; i < n; i++) {
+      var a = Math.random() * Math.PI * 2;
+      var sp = 60 + Math.random() * 110;
+      particles.push({ x: x, y: y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 40, r: 2 + Math.random() * 3, color: color, life: 0.45, maxLife: 0.55 });
+    }
+    if (particles.length > 200) particles.splice(0, particles.length - 200);
+  }
+
+  /* ===== 物理 ===== */
+  function physicsStep(dt) {
+    var i, j, b;
+    for (i = 0; i < items.length; i++) {
+      b = items[i];
+      b.vy += GRAVITY * dt;
+      b.vx += GRAVITY * tiltX * dt;
+      b.x += b.vx * dt;
+      b.y += b.vy * dt;
+      b.age += dt;
+      b.pop = Math.max(0, b.pop - dt);
+      // 墙壁
+      if (b.x - b.radius < LEFT_WALL) { b.x = LEFT_WALL + b.radius; if (b.vx < 0) b.vx = -b.vx * WALL_RESTITUTION; }
+      if (b.x + b.radius > RIGHT_WALL) { b.x = RIGHT_WALL - b.radius; if (b.vx > 0) b.vx = -b.vx * WALL_RESTITUTION; }
+      if (b.y + b.radius > FLOOR) { b.y = FLOOR - b.radius; if (b.vy > 0) b.vy = -b.vy * WALL_RESTITUTION; b.vx *= Math.max(0, 1 - GROUND_FRICTION * dt); }
+      // 微阻尼
+      b.vx *= 0.999;
+    }
+
+    var merges = [];
+    var mergeSet = {};
+    for (var iter = 0; iter < 3; iter++) {
+      for (i = 0; i < items.length; i++) {
+        var a = items[i];
+        for (j = i + 1; j < items.length; j++) {
+          b = items[j];
+          var dx = b.x - a.x, dy = b.y - a.y;
+          var minDist = a.radius + b.radius;
+          var distSq = dx * dx + dy * dy;
+          // 合成判定先于物理：同等级且足够接近（含一点容差）→ 立即合成，
+          // 不做弹开物理，避免两个球被推开后永远合不上。
+          if (a.level === b.level && a.level < MAX_LEVEL) {
+            var mergeTolerance = 0.6;
+            var mergeDist = minDist + mergeTolerance;
+            if (distSq < mergeDist * mergeDist) {
+              var key = Math.min(a.id, b.id) + ":" + Math.max(a.id, b.id);
+              if (!mergeSet[key]) { mergeSet[key] = true; merges.push([a, b]); }
+            }
+            continue;
+          }
+          // 不同等级走物理碰撞：只有真正重叠(穿透)才处理
+          if (distSq >= minDist * minDist) continue;
+          var dist = Math.sqrt(distSq);
+          if (dist < 0.0001) { dx = (a.id < b.id ? 1 : -1); dy = 0; dist = 0.0001; }
+          var nx = dx / dist, ny = dy / dist;
+          var overlap = minDist - dist;
+          // 位置修正（按质量分配）
+          var invSum = a.invMass + b.invMass;
+          var corr = overlap / invSum;
+          a.x -= nx * corr * a.invMass;
+          a.y -= ny * corr * a.invMass;
+          b.x += nx * corr * b.invMass;
+          b.y += ny * corr * b.invMass;
+          // 速度冲量
+          var rvx = b.vx - a.vx, rvy = b.vy - a.vy;
+          var velN = rvx * nx + rvy * ny;
+          if (velN < 0) {
+            var jimp = -(1 + CIRCLE_RESTITUTION) * velN / invSum;
+            a.vx -= jimp * nx * a.invMass; a.vy -= jimp * ny * a.invMass;
+            b.vx += jimp * nx * b.invMass; b.vy += jimp * ny * b.invMass;
+          }
+          // 摩擦
+          var tx = rvx - velN * nx, ty = rvy - velN * ny;
+          var tl = Math.sqrt(tx * tx + ty * ty);
+          if (tl > 0.0001) {
+            tx /= tl; ty /= tl;
+            var jt = -(rvx * tx + rvy * ty) / invSum;
+            var lim = FRICTION * Math.abs(jimp);
+            jt = clamp(jt, -lim, lim);
+            a.vx -= tx * jt * a.invMass; a.vy -= ty * jt * a.invMass;
+            b.vx += tx * jt * b.invMass; b.vy += ty * jt * b.invMass;
+          }
+        }
+      }
+    }
+
+    // 应用合成
+    if (merges.length) {
+      var consumed = {};
+      var created = [];
+      for (i = 0; i < merges.length; i++) {
+        var p = merges[i];
+        var a0 = p[0], b0 = p[1];
+        if (consumed[a0.id] || consumed[b0.id]) continue;
+        consumed[a0.id] = true; consumed[b0.id] = true;
+        var tm = a0.mass + b0.mass;
+        var mx = (a0.x * a0.mass + b0.x * b0.mass) / tm;
+        var my = (a0.y * a0.mass + b0.y * b0.mass) / tm;
+        var mvx = (a0.vx * a0.mass + b0.vx * b0.mass) / tm;
+        var mvy = (a0.vy * a0.mass + b0.vy * b0.mass) / tm;
+        var nl = a0.level + 1;
+        addMergeScore(nl, mx, my);
+        addBurst(mx, my, LEVELS[a0.level].color);
+        playMergeSound(nl);
+        mx = clamp(mx, LEFT_WALL + LEVELS[nl].radius, RIGHT_WALL - LEVELS[nl].radius);
+        my = Math.min(my, FLOOR - LEVELS[nl].radius);
+        created.push(makeItem(nl, mx, my, mvx * 0.5, mvy * 0.5));
+        if (nl === MAX_LEVEL) { hasMergedHighest = true; }
+        maxLevelReached = Math.max(maxLevelReached, nl);
+      }
+      if (Object.keys(consumed).length) {
+        items = items.filter(function (b) { return !consumed[b.id]; });
+        items = items.concat(created);
+      }
+    }
+  }
+
+  function updateDanger(dt) {
+    var crossed = false;
+    for (var i = 0; i < items.length; i++) {
+      var b = items[i];
+      if (b.age < b.grace) continue;
+      if (b.y - b.radius < DANGER_LINE) { crossed = true; break; }
+    }
+    if (crossed) dangerTimer += dt; else dangerTimer = Math.max(0, dangerTimer - dt * 2.8);
+    if (dangerTimer >= DANGER_DELAY) { beginFailure(); }
+  }
+
+  function updateEffects(dt) {
+    var i;
+    for (i = particles.length - 1; i >= 0; i--) {
+      var p = particles[i];
+      p.life -= dt;
+      if (p.life <= 0) { particles.splice(i, 1); continue; }
+      p.vy += 300 * dt;
+      p.x += p.vx * dt; p.y += p.vy * dt;
+    }
+    for (i = floaters.length - 1; i >= 0; i--) {
+      var f = floaters[i];
+      f.life -= dt; f.y -= 36 * dt;
+      if (f.life <= 0) floaters.splice(i, 1);
+    }
+  }
+
+  function tick(dt) {
+    if (mode === "playing") {
+      if (dropCooldown > 0) {
+        dropCooldown -= dt;
+        if (dropCooldown <= 0) { currentLevel = randLevel(); aimX = limitAimX(aimX); readyToDrop = true; }
+      }
+      physicsStep(dt);
+      updateDanger(dt);
+      updateEffects(dt);
+    }
+  }
+
+  /* ===== 渲染 ===== */
+  function syncCanvas() {
+    var rect = canvas.getBoundingClientRect();
+    dpr = clamp(window.devicePixelRatio || 1, 1, 2.5);
+    var w = Math.max(1, rect.width), h = Math.max(1, rect.height);
+    canvas.width = Math.round(w * dpr);
+    canvas.height = Math.round(h * dpr);
+    scaleX = w / WORLD_W;
+    scaleY = h / WORLD_H;
+  }
+
+  // Fit the full height of the original portrait into the circle. Matching colors
+  // fill the sides; no face or brand is regenerated.
+  function drawPortrait(context, character, x, y, radius) {
+    context.save();
+    context.translate(x, y);
+    context.beginPath(); context.arc(0, 0, radius, 0, Math.PI * 2); context.clip();
+    context.fillStyle = character.color;
+    context.fillRect(-radius, -radius, radius * 2, radius * 2);
+    if (portraitSheet.complete && portraitSheet.naturalWidth > 0) {
+      var s = character.source;
+      var scale = radius * 1.85 / s[3];
+      var w = s[2] * scale, h = s[3] * scale;
+      context.drawImage(portraitSheet, s[0], s[1], s[2], s[3], -w / 2, -h / 2, w, h);
+    } else {
+      context.fillStyle = "#173e50";
+      context.textAlign = "center"; context.textBaseline = "middle";
+      context.font = "700 " + radius * (character.name.length > 3 ? 0.3 : 0.4) + "px system-ui";
+      context.fillText(character.name, 0, 0);
+    }
+    context.restore();
+  }
+  function renderGallery() {
+    galleryList.innerHTML = LEVELS.map(function (character, index) {
+      return '<figure><canvas width="360" height="360" data-character="' + character.id + '" role="img" aria-label="' + character.name + '饮料球"></canvas><figcaption><span>' + (index + 1) + '</span>' + character.name + '</figcaption></figure>';
+    }).join("");
+    Array.from(galleryList.querySelectorAll("canvas")).forEach(function (preview) {
+      drawPortrait(preview.getContext("2d"), characterById(preview.dataset.character), 180, 180, 178);
+    });
+  }
+  function openGallery() {
+    if (mode !== "playing" && mode !== "gameover") return;
+    modeBeforeGallery = mode; mode = "gallery"; activePointer = null;
+    renderGallery(); galleryOverlay.hidden = false; app.inert = true;
+    galleryCloseButton.focus();
+  }
+  function closeGallery() {
+    galleryOverlay.hidden = true; app.inert = false; mode = modeBeforeGallery;
+    lastTime = 0; requestFrame(); galleryButton.focus();
+  }
+
+  function drawBadge(x, y, radius, level, alpha, pop) {
+    var L = LEVELS[level];
+    var popScale = pop > 0 ? 1 + pop * 1.4 : 1;
+    var r = radius * popScale;
+    var bodyR = r - 1.5;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.translate(x, y);
+    // 白色外圈
+    ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2);
+    ctx.fillStyle = "#ffffff"; ctx.fill();
+    drawPortrait(ctx, L, 0, 0, bodyR);
+    if (L.crown) {
+      ctx.beginPath(); ctx.arc(0, 0, r - 4, 0, Math.PI * 2);
+      ctx.strokeStyle = "#e6b422"; ctx.lineWidth = 2.5; ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function drawDangerLine() {
+    var near = dangerTimer > 0 || (mode === "playing" && dangerNear());
+    ctx.save();
+    ctx.setLineDash([7, 8]);
+    ctx.lineWidth = 2.5;
+    ctx.strokeStyle = near ? "rgba(220,60,60,.85)" : "rgba(120,120,120,.4)";
+    ctx.beginPath(); ctx.moveTo(LEFT_WALL, DANGER_LINE); ctx.lineTo(RIGHT_WALL, DANGER_LINE); ctx.stroke();
+    ctx.restore();
+  }
+  function dangerNear() {
+    for (var i = 0; i < items.length; i++) {
+      var b = items[i];
+      if (b.age >= b.grace && b.y - b.radius < DANGER_LINE + 70) return true;
+    }
+    return false;
+  }
+
+  function drawAimGuide() {
+    if (mode !== "playing" || !readyToDrop) return;
+    var r = LEVELS[currentLevel].radius;
+    ctx.save();
+    ctx.globalAlpha = 0.35;
+    ctx.strokeStyle = "#ffffff";
+    ctx.lineWidth = 2;
+    ctx.setLineDash([4, 6]);
+    ctx.beginPath(); ctx.moveTo(aimX, 0); ctx.lineTo(aimX, r + 26); ctx.stroke();
+    ctx.restore();
+    drawBadge(aimX, r + 8, r, currentLevel, 0.85, 0);
+  }
+
+  function render() {
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.setTransform(dpr * scaleX, 0, 0, dpr * scaleY, 0, 0);
+    ctx.save();
+
+    drawDangerLine();
+    drawAimGuide();
+    for (var i = 0; i < items.length; i++) {
+      var b = items[i];
+      drawBadge(b.x, b.y, b.radius, b.level, 1, b.pop);
+    }
+    // 粒子
+    for (i = 0; i < particles.length; i++) {
+      var p = particles[i];
+      ctx.save();
+      ctx.globalAlpha = clamp(p.life / p.maxLife, 0, 1);
+      ctx.fillStyle = p.color;
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    }
+    // 加分浮字
+    for (i = 0; i < floaters.length; i++) {
+      var f = floaters[i];
+      ctx.save();
+      ctx.globalAlpha = clamp(f.life / f.maxLife, 0, 1);
+      ctx.fillStyle = "#b8860b";
+      ctx.font = "800 20px system-ui, 'PingFang SC', 'Microsoft YaHei', sans-serif";
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText(f.text, f.x, f.y);
+      ctx.restore();
+    }
+    ctx.restore();
+  }
+
+  /* ===== 主循环 ===== */
+  function frame(now) {
+    rafId = null;
+    if (document.hidden) return;
+    var dt = lastTime === 0 ? 1 / 60 : Math.min((now - lastTime) / 1000, 0.05);
+    lastTime = now;
+    if (mode === "playing" || mode === "ending") {
+      var steps = 1;
+      var sub = dt / steps;
+      for (var s = 0; s < steps; s++) tick(sub);
+    }
+    render();
+    if (mode === "playing" || mode === "ending") requestFrame();
+  }
+  function requestFrame() {
+    if (rafId === null && !document.hidden) rafId = requestAnimationFrame(frame);
+  }
+
+  /* ===== 指针输入 ===== */
+  function eventWorldX(e) {
+    var rect = canvas.getBoundingClientRect();
+    return (e.clientX - rect.left) / scaleX;
+  }
+  canvas.addEventListener("pointerdown", function (e) {
+    if (mode !== "playing" || !readyToDrop || activePointer !== null) return;
+    activePointer = e.pointerId;
+    aimX = limitAimX(eventWorldX(e));
+    try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
+    ensureAudio();
+    if (e.cancelable) e.preventDefault();
+  });
+  canvas.addEventListener("pointermove", function (e) {
+    if (e.pointerId === activePointer || (activePointer === null && e.pointerType === "mouse")) {
+      if (mode === "playing" && readyToDrop) aimX = limitAimX(eventWorldX(e));
+      if (e.cancelable) e.preventDefault();
+    }
+  });
+  function finishGesture(e, shouldDrop) {
+    if (e.pointerId !== activePointer) return;
+    activePointer = null;
+    try { if (canvas.hasPointerCapture(e.pointerId)) canvas.releasePointerCapture(e.pointerId); } catch (err) {}
+    if (shouldDrop) dropCurrent();
+    if (e.cancelable) e.preventDefault();
+  }
+  canvas.addEventListener("pointerup", function (e) { finishGesture(e, true); });
+  canvas.addEventListener("pointercancel", function (e) { finishGesture(e, false); });
+
+  /* ===== 声音（可选，静默降级） ===== */
+  function ensureAudio() {
+    if (!soundEnabled) return;
+    try {
+      var AC = window.AudioContext || window.webkitAudioContext;
+      if (!audioCtx && AC) audioCtx = new AC();
+      if (audioCtx && audioCtx.state === "suspended") audioCtx.resume();
+    } catch (e) { audioCtx = null; }
+  }
+  function tone(freq, dur, vol, type, delay) {
+    if (!soundEnabled || !audioCtx) return;
+    try {
+      var t0 = audioCtx.currentTime + (delay || 0);
+      var o = audioCtx.createOscillator(), g = audioCtx.createGain();
+      o.type = type || "sine"; o.frequency.setValueAtTime(freq, t0);
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.exponentialRampToValueAtTime(vol, t0 + 0.012);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+      o.connect(g); g.connect(audioCtx.destination);
+      o.start(t0); o.stop(t0 + dur + 0.02);
+    } catch (e) {}
+  }
+  function playDropSound() { tone(200, 0.07, 0.03, "sine", 0); }
+  function playMergeSound(level) { var f = 300 * Math.pow(1.12, Math.min(level, 11)); tone(f, 0.12, 0.05, "sine", 0); tone(f * 1.5, 0.09, 0.03, "triangle", 0.05); }
+  function playGameOverSound() { tone(240, 0.2, 0.04, "sine", 0); tone(180, 0.26, 0.035, "sine", 0.15); }
+  function updateSoundIcon() {
+    soundIcon.classList.toggle("is-muted", !soundEnabled);
+    soundButton.setAttribute("aria-label", soundEnabled ? "关闭声音" : "开启声音");
+    soundButton.setAttribute("aria-pressed", String(soundEnabled));
+  }
+
+  /* ===== 事件绑定 ===== */
+  againButton.addEventListener("click", startGame);
+  restartButton.addEventListener("click", function () { if (mode === "playing") openConfirm(); });
+  restartCancelButton.addEventListener("click", function () { closeConfirm(false); });
+  restartConfirmButton.addEventListener("click", function () { closeConfirm(true); });
+  soundButton.addEventListener("click", function () {
+    soundEnabled = !soundEnabled;
+    updateSoundIcon();
+    if (soundEnabled) { ensureAudio(); tone(440, 0.08, 0.035, "sine", 0); }
+  });
+  galleryButton.addEventListener("click", openGallery);
+  galleryCloseButton.addEventListener("click", closeGallery);
+  galleryOverlay.addEventListener("click", function (e) { if (e.target === galleryOverlay) closeGallery(); });
+  settingsButton.addEventListener("click", openSettings);
+  settingsCloseButton.addEventListener("click", function () { closeSettings(false); });
+  settingsSaveButton.addEventListener("click", saveSettings);
+  settingsResetButton.addEventListener("click", function () {
+    draftOrder = DEFAULT_ORDER.slice();
+    renderOrderList();
+    orderAnnouncement.textContent = "已恢复默认顺序，点击保存后生效";
+  });
+  settingsOverlay.addEventListener("click", function (e) {
+    if (e.target === settingsOverlay) closeSettings(false);
+  });
+  orderList.addEventListener("click", function (e) {
+    var button = e.target.closest("button[data-action]");
+    if (!button || button.disabled || orderDrag) return;
+    var id = button.closest("[data-character]").dataset.character;
+    var action = button.dataset.action;
+    if (action === "up" || action === "down") {
+      moveCharacter(id, draftOrder.indexOf(id) + (action === "up" ? -1 : 1));
+      renderOrderList(id, action);
+    }
+  });
+  orderList.addEventListener("pointerdown", function (e) {
+    var handle = e.target.closest("[data-action=drag]");
+    if (!handle || orderDrag || e.button !== 0) return;
+    orderDrag = { id: handle.closest("[data-character]").dataset.character, pointerId: e.pointerId };
+    orderList.setPointerCapture(e.pointerId);
+    renderOrderList();
+    e.preventDefault();
+  });
+  orderList.addEventListener("pointermove", function (e) {
+    if (!orderDrag || e.pointerId !== orderDrag.pointerId) return;
+    var rect = orderList.getBoundingClientRect();
+    if (e.clientY < rect.top + 30) orderList.scrollTop -= 12;
+    if (e.clientY > rect.bottom - 30) orderList.scrollTop += 12;
+    var closest = draftOrder.indexOf(orderDrag.id), distance = Infinity;
+    Array.from(orderList.children).forEach(function (row, index) {
+      var box = row.getBoundingClientRect();
+      var delta = Math.abs(e.clientY - (box.top + box.height / 2));
+      if (delta < distance) { distance = delta; closest = index; }
+    });
+    moveCharacter(orderDrag.id, closest);
+    e.preventDefault();
+  });
+  function finishOrderDrag(e) {
+    if (!orderDrag || e.pointerId !== orderDrag.pointerId) return;
+    var id = orderDrag.id;
+    orderDrag = null;
+    if (orderList.hasPointerCapture(e.pointerId)) orderList.releasePointerCapture(e.pointerId);
+    renderOrderList(id, "drag");
+  }
+  orderList.addEventListener("pointerup", finishOrderDrag);
+  orderList.addEventListener("pointercancel", finishOrderDrag);
+  orderList.addEventListener("lostpointercapture", finishOrderDrag);
+  document.addEventListener("keydown", function (e) {
+    if (mode === "gallery") {
+      if (e.key === "Escape") { e.preventDefault(); closeGallery(); }
+      else if (e.key === "Tab") { e.preventDefault(); galleryCloseButton.focus(); }
+      return;
+    }
+    if (mode !== "settings") return;
+    if (e.key === "Escape") {
+      e.preventDefault();
+      closeSettings(false);
+    } else if (e.key === "Tab") {
+      var modal = settingsOverlay;
+      var controls = Array.from(modal.querySelectorAll("button:not(:disabled), a[href]"));
+      var first = controls[0], last = controls[controls.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    } else if ((e.key === "ArrowUp" || e.key === "ArrowDown")) {
+      var handle = e.target.closest("[data-action=drag]");
+      if (!handle) return;
+      e.preventDefault();
+      var id = handle.closest("[data-character]").dataset.character;
+      moveCharacter(id, draftOrder.indexOf(id) + (e.key === "ArrowUp" ? -1 : 1));
+      renderOrderList(id, "drag");
+    }
+  });
+
+  /* ===== 陀螺仪：手机倾斜映射为水平重力 ===== */
+  var gyroAsked = false;
+
+  function onDeviceOrientation(e) {
+    if (e.gamma == null) return;
+    var g = e.gamma;   // 左右倾斜角（度），-90 ~ 90
+    tiltX = clamp(g / 45, -1.2, 1.2);
+  }
+
+  function requestGyroPermission() {
+    if (gyroAsked) return;
+    gyroAsked = true;
+    try {
+      if (typeof DeviceOrientationEvent === "undefined") return;
+      if (typeof DeviceOrientationEvent.requestPermission !== "function") return; // Android/桌面/旧iOS 无需授权
+      var p = DeviceOrientationEvent.requestPermission();
+      if (p && typeof p.then === "function") { p.then(function () {}).catch(function () {}); }
+    } catch (e) {}
+  }
+
+  window.addEventListener("deviceorientation", onDeviceOrientation);
+  // iOS 必须在用户手势里请求权限；touchstart 是 iOS 上最可靠的触发时机
+  canvas.addEventListener("touchstart", requestGyroPermission, { passive: true });
+
+  window.addEventListener("resize", function () { syncCanvas(); render(); });
+  window.addEventListener("blur", function () { activePointer = null; });
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden) return;
+    lastTime = 0; syncCanvas(); render(); requestFrame();
+  });
+
+  /* ===== 启动 ===== */
+  renderGallery();
+  bestScore = loadBest();
+  bestEl.textContent = String(bestScore);
+  updateGameTitle();
+  updateSoundIcon();
+  syncCanvas();
+  startGame();
+})();
+</script>
+</body>
+</html>
